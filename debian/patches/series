@@ -1,0 +1,2 @@
+# Quilt patches applied on top of the upstream tarball at build time.
+# List one patch filename per line. Leave empty if no patches are needed.

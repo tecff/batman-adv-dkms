@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+
+# Upstream version is the single source of truth, taken from debian/changelog.
+UPSTREAM_VERSION := $(shell dpkg-parsechangelog -S Version | sed 's/-[^-]*$$//')
+
+%:
+	dh $@ --with dkms
+
+# Nothing to compile at package build time: DKMS builds the module on the
+# target host against the installed kernel headers.
+override_dh_auto_build:
+	@echo "Skipping in-tree build; DKMS compiles on the target host."
+
+# Stage the upstream sources into /usr/src/batman-adv-<upstream-version>/
+# so dh_dkms can register them. Everything at the top of the source tree
+# except debian/ is upstream material. Upstream does NOT ship a dkms.conf
+# (verified against the current tree); dh_dkms generates the authoritative
+# one from debian/batman-adv-dkms.dkms.
+override_dh_auto_install:
+	set -e; \
+	dest=debian/batman-adv-dkms/usr/src/batman-adv-$(UPSTREAM_VERSION); \
+	mkdir -p $$dest; \
+	find . -mindepth 1 -maxdepth 1 ! -name 'debian' ! -name '.*' -exec cp -a {} $$dest/ \;
+
+# Nothing is ever compiled at package build time (DKMS compiles on the
+# target), so there are no build artefacts to clean. Overriding to a no-op
+# prevents the upstream Makefile's `clean` target from requiring a kernel
+# build tree (/lib/modules/.../build) that the build host does not have.
+override_dh_auto_clean:
+	@echo "Nothing to clean; DKMS builds on the target host."

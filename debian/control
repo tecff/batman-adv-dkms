@@ -1,0 +1,23 @@
+Source: batman-adv-dkms
+Section: kernel
+Priority: optional
+Maintainer: rotanid <rotanid@tecff.de>
+Build-Depends: debhelper-compat (= 13),
+               dh-dkms
+Standards-Version: 4.7.0
+Homepage: https://www.open-mesh.org/
+Rules-Requires-Root: no
+
+Package: batman-adv-dkms
+Architecture: all
+Depends: dkms (>= 3.0), ${misc:Depends}
+Recommends: linux-headers-amd64 | linux-headers-generic
+Description: B.A.T.M.A.N. advanced kernel module sources (DKMS)
+ batman-adv is a Layer 2 mesh routing protocol implemented as an
+ out-of-tree Linux kernel module. This package ships the module
+ sources and registers them with DKMS, so the module is compiled
+ automatically whenever a new kernel image is installed.
+ .
+ No prebuilt module is included; DKMS builds it on the target host
+ against the running kernel's headers. Install the linux-headers-*
+ package matching your kernel to enable the build.

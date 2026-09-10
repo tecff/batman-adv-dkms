@@ -1,0 +1,16 @@
+PACKAGE_NAME="batman-adv"
+PACKAGE_VERSION="2026.3"
+MAKE[0]="make -j$(nproc) KERNELPATH=${kernel_source_dir} INSTALL_MOD_STRIP=1"
+CLEAN="make clean"
+BUILT_MODULE_NAME[0]="batman-adv"
+BUILT_MODULE_LOCATION[0]="net/batman-adv/"
+DEST_MODULE_LOCATION[0]="/extra/"
+AUTOINSTALL="yes"
+
+# batman-adv build-time config knobs (current upstream Makefile defaults:
+# BATMAN_V=y, BLA=y, DAT=y, DEBUG=n, MCAST=y, TRACING=n). To flip one, append
+# it to MAKE[0] above, e.g.
+#   MAKE[0]="make -j$(nproc) KERNELPATH=${kernel_source_dir} INSTALL_MOD_STRIP=1 CONFIG_BATMAN_ADV_DEBUG=y"
+# The legacy build-batman_adv script noted "including deprecated DEBUGFS &
+# SYSFS interfaces"; enable those here if your mesh still relies on them.
+# See README.external.rst in the upstream tree for the full option list.

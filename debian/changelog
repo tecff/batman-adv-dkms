@@ -1,0 +1,13 @@
+batman-adv-dkms (2026.3-1~tecff1) UNRELEASED; urgency=medium
+
+  * Track latest upstream batman-adv v2026.3.
+
+ -- rotanid <rotanid@tecff.de>  Thu, 10 Sep 2026 00:00:00 +0000
+
+batman-adv-dkms (2026.2-1~tecff1) UNRELEASED; urgency=medium
+
+  * Track latest upstream batman-adv v2026.2.
+  * Initial DKMS packaging for automatic rebuilds across kernel versions
+    (replaces the ad-hoc build-batman_adv script).
+
+ -- rotanid <rotanid@tecff.de>  Thu, 23 Jul 2026 00:00:00 +0000

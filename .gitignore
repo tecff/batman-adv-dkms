@@ -1,0 +1,10 @@
+# Generated build artifacts
+/build/
+
+# Stray packaging output (defensive; normally lands inside build/)
+*.deb
+*.changes
+*.dsc
+*.buildinfo
+*.tar.xz
+*.substvars

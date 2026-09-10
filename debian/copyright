@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: batman-adv
+Upstream-Contact: The B.A.T.M.A.N. team <b.a.t.m.a.n@lists.open-mesh.org>
+Source: https://git.open-mesh.org/batman-adv.git
+
+Files: *
+Copyright: 2007-2025, B.A.T.M.A.N. contributors
+License: GPL-2.0+
+
+Files: debian/*
+Copyright: 2026, rotanid <rotanid@tecff.de>
+License: GPL-2.0+
