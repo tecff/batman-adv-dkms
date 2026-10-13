@@ -1,0 +1,5 @@
+# The toolchain image needs only the Dockerfile — the repo is bind-mounted at
+# run time. Excluding everything else keeps the build context tiny and prevents
+# leaking local build artifacts / .git into the image layer cache.
+*
+!Dockerfile

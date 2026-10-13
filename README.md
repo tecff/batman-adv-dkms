@@ -54,6 +54,31 @@ apt install dpkg-dev debhelper dh-dkms git xz-utils devscripts   # once
 ```
 Artifacts appear in `build/`.
 
+## Continuous Integration (Jenkins on host02.tecff.de)
+
+Builds run in a pinned Docker toolchain image (`Dockerfile`) driven by the
+`Jenkinsfile` (declarative pipeline). The image carries only the packaging
+stack — no compiler, no kernel headers — so it survives build-host reinstalls
+and stays reproducible. Resulting `.deb`(s) are archived to the Jenkins build;
+there is no auto-publish step.
+
+Setup (once, on host02's Jenkins):
+
+1. Create a **Multibranch Pipeline** job pointing at this repo.
+2. Branch sources → add a **Tags** source filtered to `v*` (release tags) so a
+   tag push triggers a build.
+3. Point a GitHub webhook at Jenkins (or schedule periodic "Scan"), so new tags
+   are discovered.
+4. The executor needs Docker; the `jenkins` user must be able to run
+   `docker build` / `docker run` (membership in the `docker` group, or rootless
+   Docker).
+
+Local dry-run (no Jenkins needed):
+```
+docker build -t tecff/batman-adv-dkms-builder:bookworm .
+docker run --rm -v "$PWD":/workspace -w /workspace tecff/batman-adv-dkms-builder:bookworm ./build.sh
+```
+
 ## Bump to a new batman-adv release
 
 1. `dch -v 2026.1-1~tecff1`  (adds a `debian/changelog` entry — the only file
