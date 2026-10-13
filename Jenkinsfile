@@ -6,17 +6,24 @@
 //
 // Recommended setup on host02's Jenkins:
 //   * Job type: "Multibranch Pipeline" pointing at this repo.
-//   * Under "Branch sources" → add a "Tags" source with filter `v*` (or
-//     `\d+\.\d+\.`) so pushing/updating a release tag triggers a build.
-//   * Enable GitHub webhook (or schedule periodic "Scan Multibranch Pipeline")
-//     so new tags are discovered automatically.
-//   * The executor node needs Docker, and the jenkins user must be allowed to
-//     run `docker build` / `docker run` (typically membership in the `docker`
-//     group, or rootless Docker).
+//   * Default Branch source (tracks `master`) builds on EVERY push to master —
+//     no extra config needed; this is the primary workflow.
+//   * OPTIONAL: add a "Tags" source filtered to `v*` if you also want tagged
+//     release artifacts (distinct builds attached to release tags). Purely
+//     additive; skip it if every-commit coverage is enough.
+//   * Enable a GitHub webhook (or schedule periodic "Scan Multibranch
+//     Pipeline") so pushes/new tags are discovered automatically.
+//   * The executor needs Docker configured ROOTLESS for the jenkins user (see
+//     the "Rootless Docker" section in README.md). Rootless avoids granting the
+//     jenkins user effective-root via the docker group, and UID-maps the
+//     container's inner root to the jenkins user so bind-mounted workspace files
+//     are owned correctly without an explicit --user flag.
+//   * If you run Docker rootful instead, restore the --user flag noted beside
+//     the "ROOTFUL fallback" comment in the Build .deb stage below.
 //   * Adjust `agent {}` below if your executors use a specific label.
 //
 // Why Docker: the toolchain (dpkg-dev, debhelper, dh-dkms, ...) is baked into
-// the image, so a build-host wipe or OS upgrade can't silently break builds —
+// the image, so a build-host wipe or OS upgrade can't silently break builds.
 
 pipeline {
     agent any
@@ -45,20 +52,26 @@ pipeline {
         stage('Build .deb') {
             steps {
                 // Bind-mount the workspace into the container and run build.sh.
-                // Run as the jenkins UID/GID so artifacts are owned by the
-                // jenkins user (lets the post-step `rm -rf build` succeed and
-                // keeps the workspace tidy without root-owned leftovers).
+                //
+                // ROOTLESS (recommended): no --user flag. The container's inner
+                // root is UID-mapped to the jenkins user on the host, so files
+                // written into the bind mount are owned by jenkins naturally.
+                //
+                // ROOTFUL fallback: uncomment the --user line below so the
+                // build doesn't leave root-owned artifacts in the workspace.
                 sh '''
                     set -e
                     mkdir -p build
                     docker run --rm \
-                        --user "$(id -u):$(id -g)" \
                         --env HOME=/tmp \
                         -v "$PWD":/workspace \
                         -w /workspace \
                         "$IMAGE_TAG" \
                         ./build.sh
                 '''
+                // ROOTFUL fallback: replace the docker invocation above with:
+                //   docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp \
+                //       -v "$PWD":/workspace -w /workspace "$IMAGE_TAG" ./build.sh
             }
         }
 

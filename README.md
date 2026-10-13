@@ -79,6 +79,34 @@ docker build -t tecff/batman-adv-dkms-builder:bookworm .
 docker run --rm -v "$PWD":/workspace -w /workspace tecff/batman-adv-dkms-builder:bookworm ./build.sh
 ```
 
+### Rootless Docker on the Jenkins host (host02.tecff.de, Debian trixie)
+
+The Jenkinsfile expects the `jenkins` user to run Docker **rootless** — no
+membership in the `docker` group (which equals effective root). Rootless
+UID-maps the container's inner root to the `jenkins` user, so bind-mounted
+workspace files come out owned by `jenkins` without an explicit `--user` flag.
+
+One-time setup on host02 (as root, then as the jenkins user):
+```
+# Prerequisites (trixie ships cgroups v2 + user namespaces natively)
+apt install -y uidmap dbus-user-session slirp4netns
+
+# Let jenkins' user-scoped services persist without an active login
+loginctl enable-linger jenkins
+
+# Install rootless Docker for the jenkins user
+sudo -u jenkins dockerd-rootless-setuptool.sh install
+
+# Start and enable the user-scoped docker daemon
+sudo -u jenkins systemctl --user enable --now docker
+
+# Smoke test (as jenkins)
+sudo -u jenkins docker run --rm hello-world
+```
+The `Jenkinsfile` uses no `--user` flag; rootless UID mapping handles ownership
+of artifacts in the bind-mounted workspace. If you stay on rootful Docker
+instead, restore the `--user "$(id -u):$(id -g)"` flag noted in the Jenkinsfile.
+
 ## Bump to a new batman-adv release
 
 1. `dch -v 2026.1-1~tecff1`  (adds a `debian/changelog` entry — the only file
