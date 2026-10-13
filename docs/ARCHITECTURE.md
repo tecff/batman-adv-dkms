@@ -85,7 +85,7 @@ physically required to compile a module.
 ## 4. End-to-end pipeline
 
 ### Initial install
-1. **Build host:** `./build.sh` → `build/batman-adv-dkms_2026.2-1~tecff1_all.deb`.
+1. **Build host:** `./build.sh` → `build/batman-adv-dkms_2026.3-1~tecff1_all.deb`.
 2. **Ship to target** (§8): `scp` or an apt repo on host03.
 3. **Target:** `apt install ./batman-adv-dkms_…_all.deb` (or `apt install
    batman-adv-dkms` from your repo). apt pulls `dkms` + `linux-headers-*` +
@@ -106,7 +106,7 @@ physically required to compile a module.
 
 ### Removal
 9. `apt remove batman-adv-dkms` → prerm runs `dkms remove -m batman-adv -v
-   2026.2 --all` (auto-generated), cleaning `/usr/src/batman-adv-2026.2/` and
+   2026.3 --all` (auto-generated), cleaning `/usr/src/batman-adv-2026.3/` and
    all built `.ko`s.
 
 ## 5. How the Debian package is structured
@@ -165,8 +165,8 @@ Researched `freifunkMUC` and `freifunk-darmstadt` (both upstream of `tecff`):
 
 ### Option A — one-off scp (simplest, fine for a single server)
 ```
-scp build/batman-adv-dkms_2026.2-1~tecff1_all.deb root@host03.tecff.de:/tmp/
-ssh root@host03.tecff.de 'apt install -y /tmp/batman-adv-dkms_2026.2-1~tecff1_all.deb'
+scp build/batman-adv-dkms_2026.3-1~tecff1_all.deb root@host03.tecff.de:/tmp/
+ssh root@host03.tecff.de 'apt install -y /tmp/batman-adv-dkms_2026.3-1~tecff1_all.deb'
 ```
 
 ### Option B — tiny apt repo on host03 (scales; mirrors Darmstadt's aptly idea)
@@ -210,7 +210,7 @@ echo "$out" | grep -q '\bfailed\b' && exit 1 || exit 0
 */15 * * * * /usr/local/sbin/dkms-healthcheck.sh || systemctl --no-block start your-alert-mailer
 ```
 (Wire `your-alert-mailer` to whatever notification you use; or have it POST to
-your monitoring.) The healthy steady state is `batman-adv/2026.2: installed` for
+your monitoring.) The healthy steady state is `batman-adv/2026.3: installed` for
 every kernel line.
 
 ## 10. Alternative considered: the in-kernel module
@@ -235,7 +235,7 @@ kernel shipped.** Upstream's `README.external.rst` states the external module's
 purpose explicitly: it *"allows to get new features without upgrading to a newer
 kernel version and to get batman-adv specific bug fixes for kernels that are not
 supported anymore."* That is precisely your situation: you track upstream
-releases (currently `v2026.2`) independently of the Debian kernel cycle.
+releases (currently `v2026.3`) independently of the Debian kernel cycle.
 Upstream declares support for **Linux 5.10 – 7.2**.
 
 So the real trade-off is **currency vs. maintenance burden**: the in-kernel

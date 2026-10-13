@@ -109,17 +109,17 @@ instead, restore the `--user "$(id -u):$(id -g)"` flag noted in the Jenkinsfile.
 
 ## Bump to a new batman-adv release
 
-1. `dch -v 2026.1-1~tecff1`  (adds a `debian/changelog` entry — the only file
+1. `dch -v 2026.3-1~tecff1`  (adds a `debian/changelog` entry — the only file
    you edit by hand; it is the single source of truth).
-2. `./build.sh` — derives git tag `v2026.1`, re-syncs `PACKAGE_VERSION` in the
+2. `./build.sh` — derives git tag `v2026.3`, re-syncs `PACKAGE_VERSION` in the
    `.dkms` file, fetches upstream, builds the `.deb`.
 
 ## Deploy on the target host (host03.tecff.de)
 
 Simplest (single server):
 ```
-scp build/batman-adv-dkms_2026.2-1~tecff1_all.deb root@host03.tecff.de:/tmp/
-ssh root@host03.tecff.de 'apt install -y /tmp/batman-adv-dkms_2026.2-1~tecff1_all.deb'
+scp build/batman-adv-dkms_2026.3-1~tecff1_all.deb root@host03.tecff.de:/tmp/
+ssh root@host03.tecff.de 'apt install -y /tmp/batman-adv-dkms_2026.3-1~tecff1_all.deb'
 ```
 Or publish to a tiny apt repo on host03 (which already serves HTTP) and
 `apt install batman-adv-dkms` — see `docs/ARCHITECTURE.md` §8.
@@ -128,7 +128,7 @@ Install registers the module with DKMS and builds it for the running kernel.
 Future `apt upgrade` of `linux-image-amd64` rebuild it automatically
 (`AUTOINSTALL=yes`). Inspect:
 ```
-dkms status        # batman-adv/2026.2: installed   (or failed — see §9)
+dkms status        # batman-adv/2026.3: installed   (or failed — see §9)
 modinfo batman-adv
 ```
 Remove: `apt remove batman-adv-dkms` (also runs `dkms remove --all`).
