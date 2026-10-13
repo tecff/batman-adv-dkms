@@ -13,26 +13,15 @@
 //     additive; skip it if every-commit coverage is enough.
 //   * Enable a GitHub webhook (or schedule periodic "Scan Multibranch
 //     Pipeline") so pushes/new tags are discovered automatically.
-//   * The executor needs Docker configured ROOTLESS for the jenkins user (see
-//     the "Rootless Docker" section in README.md). Rootless avoids granting the
-//     jenkins user effective-root via the docker group, and UID-maps the
-//     container's inner root to the jenkins user so bind-mounted workspace files
-//     are owned correctly without an explicit --user flag.
-//   * If you run Docker rootful instead, restore the --user flag noted beside
-//     the "ROOTFUL fallback" comment in the Build .deb stage below.
+//   * The executor needs Docker for the jenkins user — EITHER rootful
+//     (jenkins in the docker group) OR rootless (dockerd-rootless-setuptool.sh,
+//     see the "Rootless Docker" section in README.md). The pipeline probes the
+//     default daemon first and falls back to the rootless socket automatically,
+//     so the SAME Jenkinsfile works on both setups with no edits.
 //   * Adjust `agent {}` below if your executors use a specific label.
 //
 // Why Docker: the toolchain (dpkg-dev, debhelper, dh-dkms, ...) is baked into
 // the image, so a build-host wipe or OS upgrade can't silently break builds.
-
-// Resolve the jenkins user's ROOTLESS Docker socket, then export DOCKER_HOST
-// for each sh step that invokes docker. Prefers XDG_RUNTIME_DIR (set by
-// systemd-logind for lingering users), falls back to /run/user/<uid>.
-// UID-derived so no hardcoded user id — portable across hosts.
-String dockerSocket() {
-    return sh(script: 'echo "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/docker.sock"',
-              returnStdout: true).trim()
-}
 
 pipeline {
     agent any
@@ -51,53 +40,76 @@ pipeline {
 
     stages {
 
+        stage('Pick Docker daemon') {
+            steps {
+                script {
+                    // --- Rootless Docker support ---------------------------------------------
+                    // Probe the default daemon first; fall back to the jenkins user's
+                    // rootless socket if the default is unreachable. Jenkins sh steps
+                    // do not inherit the systemd user session environment, so DOCKER_HOST
+                    // is unset under rootless unless we set it here. Pattern borrowed
+                    // from site-ffa-docker-test/Jenkinsfile.
+                    if (sh(script: 'docker info >/dev/null 2>&1', returnStatus: true) != 0) {
+                        def uid = sh(returnStdout: true, script: 'id -u').trim()
+                        env.XDG_RUNTIME_DIR = "/run/user/${uid}"
+                        env.DOCKER_HOST = "unix://${env.XDG_RUNTIME_DIR}/docker.sock"
+                    }
+                    sh 'docker info >/dev/null 2>&1 || { echo "ERROR: no usable Docker daemon (default and rootless socket tried)"; exit 1; }'
+
+                    // In rootless mode the user namespace maps container uid 0 to the
+                    // host user, so an explicit --user would resolve to an unmapped
+                    // subordinate uid and break volume permissions. Detect rootlessness
+                    // and drop --user for rootless; keep it for rootful daemons.
+                    def isRootless = sh(script: 'docker info 2>/dev/null | grep -q rootless', returnStatus: true) == 0
+                    echo "Docker rootless mode: ${isRootless}"
+                    if (isRootless) {
+                        env.DOCKER_USER_ARG = ''
+                    } else {
+                        def uid = sh(returnStdout: true, script: 'id -u').trim()
+                        def gid = sh(returnStdout: true, script: 'id -g').trim()
+                        env.DOCKER_USER_ARG = "--user ${uid}:${gid}"
+                    }
+                }
+            }
+        }
+
         stage('Build toolchain image') {
             steps {
                 // --pull picks up base-image security updates; cheap insurance.
-                sh """#!/usr/bin/env bash
+                sh '''#!/usr/bin/env bash
                     set -e
-                    export DOCKER_HOST=unix://${dockerSocket()}
-                    docker build --pull -t "\$IMAGE_TAG" .
-                """
+                    docker build --pull -t "$IMAGE_TAG" .
+                '''
             }
         }
 
         stage('Build .deb') {
             steps {
                 // Bind-mount the workspace into the container and run build.sh.
-                //
-                // ROOTLESS (recommended): no --user flag. The container's inner
-                // root is UID-mapped to the jenkins user on the host, so files
-                // written into the bind mount are owned by jenkins naturally.
-                //
-                // ROOTFUL fallback: uncomment the --user line below so the
-                // build doesn't leave root-owned artifacts in the workspace.
+                // DOCKER_USER_ARG is '' under rootless (inner root = jenkins user)
+                // or '--user <uid>:<gid>' under rootful (avoid root-owned artifacts).
                 sh """#!/usr/bin/env bash
                     set -e
-                    export DOCKER_HOST=unix://${dockerSocket()}
                     mkdir -p build
                     docker run --rm \\
+                        ${env.DOCKER_USER_ARG} \\
                         --env HOME=/tmp \\
                         -v "\$PWD":/workspace \\
                         -w /workspace \\
                         "\$IMAGE_TAG" \\
                         ./build.sh
                 """
-                // ROOTFUL fallback: replace the docker invocation above with:
-                //   docker run --rm --user "\$(id -u):\$(id -g)" --env HOME=/tmp \
-                //       -v "\$PWD":/workspace -w /workspace "\$IMAGE_TAG" ./build.sh
             }
         }
 
         stage('Verify artifact') {
             steps {
-                sh """#!/usr/bin/env bash
+                sh '''#!/usr/bin/env bash
                     set -e
-                    export DOCKER_HOST=unix://${dockerSocket()}
                     ls -lh build/*.deb
                     echo "--- control metadata ---"
                     dpkg-deb -I build/*.deb | sed -n '1,12p'
-                """
+                '''
             }
         }
     }
