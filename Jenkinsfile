@@ -25,6 +25,15 @@
 // Why Docker: the toolchain (dpkg-dev, debhelper, dh-dkms, ...) is baked into
 // the image, so a build-host wipe or OS upgrade can't silently break builds.
 
+// Resolve the jenkins user's ROOTLESS Docker socket, then export DOCKER_HOST
+// for each sh step that invokes docker. Prefers XDG_RUNTIME_DIR (set by
+// systemd-logind for lingering users), falls back to /run/user/<uid>.
+// UID-derived so no hardcoded user id — portable across hosts.
+String dockerSocket() {
+    return sh(script: 'echo "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/docker.sock"',
+              returnStdout: true).trim()
+}
+
 pipeline {
     agent any
 
@@ -45,7 +54,11 @@ pipeline {
         stage('Build toolchain image') {
             steps {
                 // --pull picks up base-image security updates; cheap insurance.
-                sh 'docker build --pull -t "$IMAGE_TAG" .'
+                sh """#!/usr/bin/env bash
+                    set -e
+                    export DOCKER_HOST=unix://${dockerSocket()}
+                    docker build --pull -t "\$IMAGE_TAG" .
+                """
             }
         }
 
@@ -59,30 +72,32 @@ pipeline {
                 //
                 // ROOTFUL fallback: uncomment the --user line below so the
                 // build doesn't leave root-owned artifacts in the workspace.
-                sh '''
+                sh """#!/usr/bin/env bash
                     set -e
+                    export DOCKER_HOST=unix://${dockerSocket()}
                     mkdir -p build
-                    docker run --rm \
-                        --env HOME=/tmp \
-                        -v "$PWD":/workspace \
-                        -w /workspace \
-                        "$IMAGE_TAG" \
+                    docker run --rm \\
+                        --env HOME=/tmp \\
+                        -v "\$PWD":/workspace \\
+                        -w /workspace \\
+                        "\$IMAGE_TAG" \\
                         ./build.sh
-                '''
+                """
                 // ROOTFUL fallback: replace the docker invocation above with:
-                //   docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp \
-                //       -v "$PWD":/workspace -w /workspace "$IMAGE_TAG" ./build.sh
+                //   docker run --rm --user "\$(id -u):\$(id -g)" --env HOME=/tmp \
+                //       -v "\$PWD":/workspace -w /workspace "\$IMAGE_TAG" ./build.sh
             }
         }
 
         stage('Verify artifact') {
             steps {
-                sh '''
+                sh """#!/usr/bin/env bash
                     set -e
+                    export DOCKER_HOST=unix://${dockerSocket()}
                     ls -lh build/*.deb
                     echo "--- control metadata ---"
                     dpkg-deb -I build/*.deb | sed -n '1,12p'
-                '''
+                """
             }
         }
     }
